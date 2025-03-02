@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Control Dashboard</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+    .dashboard {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 30px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .directional-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .directional-controls button {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 1.5rem;
+      padding: 20px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .directional-controls button:active {
+      background: rgba(255, 255, 255, 0.4);
+    }
+    .directional-controls #left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .directional-controls #right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+    .directional-controls #forward {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .directional-controls #backward {
+      grid-column: 2;
+      grid-row: 3;
+    }
+    .directional-controls #stop {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .light-controls {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+    }
+    .light-controls button {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 1rem;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .light-controls button:active {
+      background: rgba(255, 255, 255, 0.4);
+    }
+    .gear-stick {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .gear-stick label {
+      font-size: 1.2rem;
+    }
+    .gear-stick input[type="range"] {
+      width: 100%;
+    }
+    .status {
+      margin-top: 20px;
+      font-size: 1.2rem;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <h1>Car Control</h1>
+    <div class="controls">
+      <div class="directional-controls">
+        <button id="forward">⬆️</button>
+        <button id="left">⬅️</button>
+        <button id="stop">⏹️</button>
+        <button id="right">➡️</button>
+        <button id="backward">⬇️</button>
+      </div>
+      <div class="light-controls">
+        <button id="headlights">Headlights</button>
+        <button id="navigator-left">Left Nav</button>
+        <button id="navigator-right">Right Nav</button>
+      </div>
+      <div class="gear-stick">
+        <label for="left-motor">Left Motor Speed</label>
+        <input type="range" id="left-motor" min="0" max="255" value="0">
+        <label for="right-motor">Right Motor Speed</label>
+        <input type="range" id="right-motor" min="0" max="255" value="0">
+      </div>
+      <div class="status" id="status">Status: Idle</div>
+    </div>
+  </div>
+
+  <script>
+    const baseUrl = "http://172.16.12.103"; // Replace with your ESP32 IP address
+    const status = document.getElementById("status");
+
+    // Directional controls
+    document.querySelectorAll(".directional-controls button").forEach(button => {
+      button.addEventListener("mousedown", () => sendCommand("direction", { dir: button.id }));
+      button.addEventListener("mouseup", () => sendCommand("direction", { dir: "stop" }));
+    });
+
+    // Light controls
+    document.querySelectorAll(".light-controls button").forEach(button => {
+        button.addEventListener("click", () => {
+            const light = button.id;
+            const isOn = button.textContent.includes("On"); // Check if the light is currently on
+            const action = isOn ? "off" : "on"; // Toggle the action
+            button.textContent = button.textContent.replace(isOn ? "On" : "Off", isOn ? "Off" : "On"); // Update button text
+            sendCommand("lights", { light, action }); // Send the command
+        });
+    });
+
+    // Gear stick (motor speed controls)
+    const leftMotorInput = document.getElementById("left-motor");
+    const rightMotorInput = document.getElementById("right-motor");
+
+    leftMotorInput.addEventListener("input", () => {
+      sendCommand("speed", { left: leftMotorInput.value, right: rightMotorInput.value });
+    });
+
+    rightMotorInput.addEventListener("input", () => {
+      sendCommand("speed", { left: leftMotorInput.value, right: rightMotorInput.value });
+    });
+
+    // Function to send commands to the ESP32
+    async function sendCommand(endpoint, data) {
+      const url = `${baseUrl}/${endpoint}?${new URLSearchParams(data)}`;
+      const response = await fetch(url);
+      const result = await response.text();
+      status.innerText = `Status: ${result}`;
+    }
+  </script>
+</body>
+</html>
