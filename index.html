@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Submarine Control Dashboard</title>
+  <title>Car Control Dashboard</title>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -25,66 +25,62 @@
       text-align: center;
       width: 90%;
       max-width: 400px;
-      position: relative;
     }
     h1 {
       font-size: 2.5rem;
       margin-bottom: 20px;
       text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
     }
-    .drive-controls {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 20px;
-    }
-    .drive-controls .left {
+    .controls {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 15px;
     }
-    .drive-controls .right {
-      display: flex;
-      flex-direction: column;
+    .directional-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
+      margin-bottom: 20px;
     }
-    .drive-controls button {
+    .directional-controls button {
       background: rgba(255, 255, 255, 0.2);
       border: none;
       border-radius: 10px;
       color: white;
       font-size: 1.5rem;
-      width: 80px;
-      height: 80px;
+      padding: 20px;
       cursor: pointer;
       transition: background 0.3s ease;
     }
-    .drive-controls button:active {
+    .directional-controls button:active {
       background: rgba(255, 255, 255, 0.4);
     }
-    .yoke {
-      margin-top: 20px;
-      width: 100%;
-      height: 150px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 30px;
+    .directional-controls #left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .directional-controls #right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+    .directional-controls #forward {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .directional-controls #backward {
+      grid-column: 2;
+      grid-row: 3;
+    }
+    .directional-controls #stop {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .light-controls {
       display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      position: relative;
+      justify-content: space-around;
+      margin: 20px 0;
     }
-    .yoke-stick {
-      width: 60px;
-      height: 60px;
-      background: white;
-      border-radius: 50%;
-      cursor: pointer;
-      position: absolute;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-      transition: transform 0.2s ease;
-    }
-    .lock-button {
-      margin-top: 10px;
+    .light-controls button {
       background: rgba(255, 255, 255, 0.2);
       border: none;
       border-radius: 10px;
@@ -94,18 +90,20 @@
       cursor: pointer;
       transition: background 0.3s ease;
     }
-    .lock-button:active {
+    .light-controls button:active {
       background: rgba(255, 255, 255, 0.4);
     }
-    .light-control {
-      margin-top: 20px;
-      font-size: 3rem;
-      cursor: pointer;
-      transition: transform 0.3s ease;
+    .gear-stick {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 20px 0;
     }
-    .light-control.on {
-      color: #ffeb3b;
-      text-shadow: 0 0 10px #ffeb3b;
+    .gear-stick label {
+      font-size: 1.2rem;
+    }
+    .gear-stick input[type="range"] {
+      width: 100%;
     }
     .status {
       margin-top: 20px;
@@ -116,91 +114,69 @@
 </head>
 <body>
   <div class="dashboard">
-    <h1>Submarine Control</h1>
-    <div class="drive-controls">
-      <div class="left">
+    <h1>Car Control</h1>
+    <div class="controls">
+      <div class="directional-controls">
         <button id="forward">⬆️</button>
+        <button id="left">⬅️</button>
+        <button id="stop">⏹️</button>
+        <button id="right">➡️</button>
         <button id="backward">⬇️</button>
       </div>
-      <div class="right">
-        <button id="left">⬅️</button>
-        <button id="right">➡️</button>
+      <div class="light-controls">
+        <button id="headlights">Headlights</button>
+        <button id="navigator-left">Left Nav</button>
+        <button id="navigator-right">Right Nav</button>
       </div>
+      <div class="gear-stick">
+        <label for="left-motor">Left Motor Speed</label>
+        <input type="range" id="left-motor" min="0" max="255" value="0">
+        <label for="right-motor">Right Motor Speed</label>
+        <input type="range" id="right-motor" min="0" max="255" value="0">
+      </div>
+      <div class="status" id="status">Status: Idle</div>
     </div>
-    <div class="yoke">
-      <div class="yoke-stick" id="yoke-stick"></div>
-    </div>
-    <button class="lock-button" id="lock">Lock</button>
-    <div class="light-control" id="light">💡</div>
-    <div class="status" id="status">Status: Idle</div>
   </div>
 
   <script>
     const baseUrl = "http://172.16.12.103"; // Replace with your ESP32 IP address
-    const yokeStick = document.getElementById("yoke-stick");
     const status = document.getElementById("status");
-    const light = document.getElementById("light");
-    const lockButton = document.getElementById("lock");
 
-    let isLocked = false;
-    let yokeValue = 0;
-
-    // Yoke control logic
-    yokeStick.addEventListener("mousedown", startDrag);
-    yokeStick.addEventListener("touchstart", startDrag);
-
-    function startDrag(e) {
-      e.preventDefault();
-      document.addEventListener("mousemove", drag);
-      document.addEventListener("touchmove", drag);
-      document.addEventListener("mouseup", stopDrag);
-      document.addEventListener("touchend", stopDrag);
-    }
-
-    function drag(e) {
-      const rect = yokeStick.parentElement.getBoundingClientRect();
-      let y = (e.clientY || e.touches[0].clientY) - rect.top;
-
-      // Constrain yoke within the container
-      y = Math.max(0, Math.min(150, y));
-      yokeStick.style.transform = `translateY(${y - 75}px)`;
-
-      // Determine yoke value (-1 to 1)
-      yokeValue = (y - 75) / 75;
-      sendCommand(yokeValue > 0 ? "float" : "sink");
-    }
-
-    function stopDrag() {
-      document.removeEventListener("mousemove", drag);
-      document.removeEventListener("touchmove", drag);
-      yokeStick.style.transform = "translateY(0)";
-      sendCommand("stop");
-    }
-
-    // Drive controls logic
-    document.querySelectorAll(".drive-controls button").forEach(button => {
-      button.addEventListener("mousedown", () => sendCommand(button.id));
-      button.addEventListener("touchstart", () => sendCommand(button.id));
-      button.addEventListener("mouseup", () => !isLocked && sendCommand("stop"));
-      button.addEventListener("touchend", () => !isLocked && sendCommand("stop"));
+    // Directional controls
+    document.querySelectorAll(".directional-controls button").forEach(button => {
+      button.addEventListener("mousedown", () => sendCommand("direction", { dir: button.id }));
+      button.addEventListener("mouseup", () => sendCommand("direction", { dir: "stop" }));
     });
 
-    // Lock button logic
-    lockButton.addEventListener("click", () => {
-      isLocked = !isLocked;
-      lockButton.innerText = isLocked ? "Unlock" : "Lock";
+    // Light controls
+    document.querySelectorAll(".light-controls button").forEach(button => {
+        button.addEventListener("click", () => {
+            const light = button.id;
+            const isOn = button.textContent.includes("On"); // Check if the light is currently on
+            const action = isOn ? "off" : "on"; // Toggle the action
+            button.textContent = button.textContent.replace(isOn ? "On" : "Off", isOn ? "Off" : "On"); // Update button text
+            sendCommand("lights", { light, action }); // Send the command
+        });
     });
 
-    // Light control logic
-    light.addEventListener("click", () => {
-      light.classList.toggle("on");
-      sendCommand(light.classList.contains("on") ? "ledon" : "ledoff");
+    // Gear stick (motor speed controls)
+    const leftMotorInput = document.getElementById("left-motor");
+    const rightMotorInput = document.getElementById("right-motor");
+
+    leftMotorInput.addEventListener("input", () => {
+      sendCommand("speed", { left: leftMotorInput.value, right: rightMotorInput.value });
     });
 
-    async function sendCommand(command) {
-      const response = await fetch(`${baseUrl}/${command}`);
-      const data = await response.text();
-      status.innerText = `Status: ${data}`;
+    rightMotorInput.addEventListener("input", () => {
+      sendCommand("speed", { left: leftMotorInput.value, right: rightMotorInput.value });
+    });
+
+    // Function to send commands to the ESP32
+    async function sendCommand(endpoint, data) {
+      const url = `${baseUrl}/${endpoint}?${new URLSearchParams(data)}`;
+      const response = await fetch(url);
+      const result = await response.text();
+      status.innerText = `Status: ${result}`;
     }
   </script>
 </body>
